@@ -23,6 +23,7 @@
 #include "remote/url.hpp"
 #include "remote/url-characters.hpp"
 #include <boost/tokenizer.hpp>
+#include <iostream>
 
 using namespace icinga;
 
@@ -381,6 +382,8 @@ bool Url::ParseQuery(const String& query)
 	boost::tokenizer<boost::char_separator<char> > tokens(queryStr, sep);
 
 	for (const String& token : tokens) {
+		std::cout << "Token: " << token << "\n";
+
 		size_t pHelper = token.Find("=");
 
 		if (pHelper == 0)
@@ -416,6 +419,14 @@ bool Url::ParseQuery(const String& query)
 			m_Query[key] = std::vector<String> { std::move(value) };
 		} else
 			m_Query[key].emplace_back(std::move(value));
+	}
+
+	for (auto v : m_Query) {
+		std::cout << "Key: " << v.first;
+
+		for (auto k : v.second) {
+			std::cout << " Value: " << k << "\n";
+		}
 	}
 
 	return true;

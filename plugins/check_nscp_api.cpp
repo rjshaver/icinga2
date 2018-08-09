@@ -77,6 +77,23 @@ static void ResultHttpCompletionCallback(const HttpRequest& request, HttpRespons
 static Dictionary::Ptr QueryEndpoint(const String& host, const String& port, const String& password,
 	const String& endpoint)
 {
+	Url::Ptr url;
+
+	try {
+		// Url() will call Utillity::UnescapeString() which will thrown an exception if it finds a lonely %
+		url = new Url(endpoint);
+		url->SetArrayFormatUseBrackets(false);
+
+		if (l_Debug) {
+			std::cout << "Sending request to 'https://" << host << ":" << port << url->Format(false, false) << "'\n";
+		}
+	}
+	catch (const std::exception& ex) {
+		// Exceptions should only happen in extreme edge cases we can't recover from
+		std::cout << "Caught exception: " << DiagnosticInformation(ex, false) << '\n';
+		return Dictionary::Ptr();
+	}
+
 	HttpClientConnection::Ptr m_Connection = new HttpClientConnection(host, port, true);
 
 	try {
@@ -87,15 +104,11 @@ static Dictionary::Ptr QueryEndpoint(const String& host, const String& port, con
 		std::shared_ptr<HttpRequest> req = m_Connection->NewRequest();
 		req->RequestMethod = "GET";
 
-		// Url() will call Utillity::UnescapeString() which will thrown an exception if it finds a lonely %
-		req->RequestUrl = new Url(endpoint);
-
-		// NSClient++ uses `time=1m&time=5m` instead of `time[]=1m&time[]=5m`
-		req->RequestUrl->SetArrayFormatUseBrackets(false);
+		req->RequestUrl = url;
 
 		req->AddHeader("password", password);
 		if (l_Debug) {
-			std::cout << "Sending request to 'https://" << host << ":" << port << req->RequestUrl->Format(false, false) << "'\n"
+			std::cout << "Connected and now sending request to 'https://" << host << ":" << port << req->RequestUrl->Format(false, false) << "'\n"
 				<< "Headers: " << JsonEncode(req->Headers) << "\n";
 		}
 
@@ -308,6 +321,10 @@ int main(int argc, char **argv)
 			}
 			endpoint += '&';
 		}
+	}
+
+	if (l_Debug) {
+		std::cout << "Querying endpoint '" << endpoint << "'\n";
 	}
 
 	// This needs to happen for HttpRequest to work
