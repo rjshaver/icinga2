@@ -228,16 +228,54 @@ void TlsStream::OnEvent(int revents)
 			break;
 		case TlsActionHandshake:
 			Log(LogCritical, "DERP") << "CurrentAction -> " << "TlsActionHandshake: " << m_Socket->GetPeerAddress();
-			rc = SSL_do_handshake(m_SSL.get());
+			while (true) {
+				rc = SSL_do_handshake(m_SSL.get());
+				if (rc > 0)
+					break;
+				else {
+					int err = SSL_get_error(m_SSL.get(), rc);
 
-			if (rc > 0) {
-				Log(LogCritical, "DERP") << "Handshake done: " << m_Socket->GetPeerAddress();
-				success = true;
-				m_HandshakeOK = true;
-				m_CV.notify_all();
-			} else {
-				Log(LogCritical, "DERP") << "Handshake failed: " << m_Socket->GetPeerAddress();
+					switch (err) {
+						case SSL_ERROR_WANT_READ:
+							m_Retry = true;
+							ChangeEvents(POLLIN);
+
+							break;
+						case SSL_ERROR_WANT_WRITE:
+							m_Retry = true;
+							ChangeEvents(POLLOUT);
+
+							break;
+						case SSL_ERROR_ZERO_RETURN:
+							lock.unlock();
+
+							Close();
+
+							return;
+						default:
+							m_ErrorCode = ERR_peek_error();
+							m_ErrorOccurred = true;
+
+							if (m_ErrorCode != 0) {
+								Log(LogWarning, "TlsStream")
+										<< "OpenSSL error: " << ERR_error_string(m_ErrorCode, nullptr);
+							} else {
+								Log(LogWarning, "TlsStream", "TLS stream was disconnected.");
+							}
+
+							lock.unlock();
+
+							Close();
+
+							return;
+					}
+				}
 			}
+
+			Log(LogCritical, "DERP") << "Handshake done: " << m_Socket->GetPeerAddress();
+			success = true;
+			m_HandshakeOK = true;
+			m_CV.notify_all();
 
 			break;
 		default:
