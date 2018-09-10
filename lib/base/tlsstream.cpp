@@ -230,6 +230,7 @@ void TlsStream::OnEvent(int revents)
 			Log(LogCritical, "DERP") << "CurrentAction -> " << "TlsActionHandshake: " << m_Socket->GetPeerAddress();
 			// Run `SSL_do_handshake` until done or failed
 			while (true) {
+				ERR_clear_error();
 				rc = SSL_do_handshake(m_SSL.get());
 				if (rc > 0) {
 					Log(LogCritical, "DERP") << "Handshake done " << m_Socket->GetPeerAddress();
