@@ -232,19 +232,24 @@ void TlsStream::OnEvent(int revents)
 			while (true) {
 				rc = SSL_do_handshake(m_SSL.get());
 				if (rc > 0)
+					Log(LogCritical, "DERP") << "Handshake done " << m_Socket->GetPeerAddress();
 					// Handshake done
 					break;
 				else {
 					int err = SSL_get_error(m_SSL.get(), rc);
-					if (err == SSL_ERROR_WANT_READ)
+					if (err == SSL_ERROR_WANT_READ) {
+						Log(LogCritical, "DERP") << "Want read" << m_Socket->GetPeerAddress();
 						// Continue `SSL_do_handshake` with `POLLIN`
 						ChangeEvents(POLLIN);
-					else if (err == SSL_ERROR_WANT_WRITE)
+					} else if (err == SSL_ERROR_WANT_WRITE) {
+						Log(LogCritical, "DERP") << "Want write " << m_Socket->GetPeerAddress();
 						// Continue `SSL_do_handshake` with `POLLOUT`
 						ChangeEvents(POLLOUT);
-					else
+					} else {
+						Log(LogCritical, "DERP") << "Handshake failed " << m_Socket->GetPeerAddress();
 						// Error is handled below
 						break;
+					}
 				}
 			}
 
@@ -275,6 +280,8 @@ void TlsStream::OnEvent(int revents)
 
 				break;
 			case SSL_ERROR_ZERO_RETURN:
+				Log(LogCritical, "DERP") << "SSL_ERROR_ZERO_RETURN " << m_Socket->GetPeerAddress();
+
 				lock.unlock();
 
 				Close();
