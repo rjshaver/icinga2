@@ -140,6 +140,7 @@ std::shared_ptr<X509> TlsStream::GetPeerCertificate() const
 
 void TlsStream::OnEvent(int revents)
 {
+	Log(LogCritical, "DERP") << "OnEvent triggered: " << m_Socket->GetPeerAddress();
 	int rc;
 	size_t count;
 
@@ -151,6 +152,7 @@ void TlsStream::OnEvent(int revents)
 	char buffer[64 * 1024];
 
 	if (m_CurrentAction == TlsActionNone) {
+		Log(LogCritical, "DERP") << "CurrentAction -> " << "TlsActionNone: " << m_Socket->GetPeerAddress();
 		bool corked = IsCorked();
 		if (!corked && (revents & (POLLIN | POLLERR | POLLHUP)))
 			m_CurrentAction = TlsActionRead;
@@ -178,6 +180,7 @@ void TlsStream::OnEvent(int revents)
 	switch (m_CurrentAction) {
 		case TlsActionRead:
 			do {
+				Log(LogCritical, "DERP") << "CurrentAction -> " << "TlsActionRead: " << m_Socket->GetPeerAddress();
 				rc = SSL_read(m_SSL.get(), buffer, sizeof(buffer));
 
 				if (rc > 0) {
@@ -212,6 +215,7 @@ void TlsStream::OnEvent(int revents)
 
 			break;
 		case TlsActionWrite:
+			Log(LogCritical, "DERP") << "CurrentAction -> " << "TlsActionWrite: " << m_Socket->GetPeerAddress();
 			count = m_SendQ->Peek(buffer, sizeof(buffer), true);
 
 			rc = SSL_write(m_SSL.get(), buffer, count);
@@ -223,12 +227,16 @@ void TlsStream::OnEvent(int revents)
 
 			break;
 		case TlsActionHandshake:
+			Log(LogCritical, "DERP") << "CurrentAction -> " << "TlsActionHandshake: " << m_Socket->GetPeerAddress();
 			rc = SSL_do_handshake(m_SSL.get());
 
 			if (rc > 0) {
+				Log(LogCritical, "DERP") << "Handshake done: " << m_Socket->GetPeerAddress();
 				success = true;
 				m_HandshakeOK = true;
 				m_CV.notify_all();
+			} else {
+				Log(LogCritical, "DERP") << "Handshake failed: " << m_Socket->GetPeerAddress();
 			}
 
 			break;
@@ -292,6 +300,7 @@ void TlsStream::OnEvent(int revents)
 	}
 
 	if (m_Shutdown && !m_SendQ->IsDataAvailable()) {
+		Log(LogCritical, "DERP") << "Closing stream: " << m_Socket->GetPeerAddress();
 		if (!success)
 			lock.unlock();
 
@@ -317,12 +326,11 @@ void TlsStream::Handshake()
 
 	boost::system_time const timeout = boost::get_system_time() + boost::posix_time::seconds(TLS_TIMEOUT_SECONDS);
 
-	while (!m_HandshakeOK && !m_ErrorOccurred && !m_Eof && timeout > boost::get_system_time())
-		m_CV.timed_wait(lock, timeout);
-
-	// We should _NOT_ (underline, bold, itallic and wordart) throw an exception for a timeout.
-	if (timeout < boost::get_system_time())
-		BOOST_THROW_EXCEPTION(std::runtime_error("Timeout during handshake."));
+	while (!m_HandshakeOK && !m_ErrorOccurred && !m_Eof && timeout > boost::get_system_time()) {
+		Log(LogCritical, "DERP") << "Waiting for handshake: " << m_Socket->GetPeerAddress();
+		if (!m_CV.timed_wait(lock, timeout))
+			BOOST_THROW_EXCEPTION(std::runtime_error("Timeout during handshake."));
+	}
 
 	if (m_Eof)
 		BOOST_THROW_EXCEPTION(std::runtime_error("Socket was closed during TLS handshake."));
