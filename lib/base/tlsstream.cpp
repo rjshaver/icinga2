@@ -382,7 +382,6 @@ void TlsStream::Write(const void *buffer, size_t count)
 
 void TlsStream::Shutdown()
 {
-	Log(LogCritical, "DERP") << "TlsSteam-Shutdown: " << m_Socket->GetPeerAddress();
 	m_Shutdown = true;
 	ChangeEvents(POLLOUT);
 }
@@ -392,13 +391,11 @@ void TlsStream::Shutdown()
  */
 void TlsStream::Close()
 {
-	Log(LogCritical, "DERP") << "TlsSteam-Close: " << m_Socket->GetPeerAddress();
 	CloseInternal(false);
 }
 
 void TlsStream::CloseInternal(bool inDestructor)
 {
-	Log(LogCritical, "DERP") << "TlsSteam-CloseInternal: " << m_Socket->GetPeerAddress();
 	if (m_Eof)
 		return;
 
