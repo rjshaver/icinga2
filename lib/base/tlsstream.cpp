@@ -231,11 +231,11 @@ void TlsStream::OnEvent(int revents)
 			// Run `SSL_do_handshake` until done or failed
 			while (true) {
 				rc = SSL_do_handshake(m_SSL.get());
-				if (rc > 0)
+				if (rc > 0) {
 					Log(LogCritical, "DERP") << "Handshake done " << m_Socket->GetPeerAddress();
 					// Handshake done
 					break;
-				else {
+				} else {
 					int err = SSL_get_error(m_SSL.get(), rc);
 					if (err == SSL_ERROR_WANT_READ) {
 						Log(LogCritical, "DERP") << "Want read" << m_Socket->GetPeerAddress();
