@@ -774,6 +774,7 @@ void ApiListener::ApiReconnectTimerHandler()
 				continue;
 			}
 
+
 			std::thread thread(std::bind(&ApiListener::AddConnection, this, endpoint));
 			thread.detach();
 		}
