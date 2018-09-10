@@ -284,7 +284,7 @@ void Socket::Listen()
  */
 size_t Socket::Write(const void *buffer, size_t count)
 {
-	Log(LogCritical, "DERP") << "Write: " << GetPeerAddress();
+	Log(LogCritical, "DERP") << "Socket-Write: " << GetPeerAddress();
 
 	int rc;
 
@@ -320,7 +320,7 @@ size_t Socket::Write(const void *buffer, size_t count)
  */
 size_t Socket::Read(void *buffer, size_t count)
 {
-	Log(LogCritical, "DERP") << "Read: " << GetPeerAddress();
+	Log(LogCritical, "DERP") << "Socket-Read: " << GetPeerAddress();
 
 	int rc;
 
@@ -386,7 +386,7 @@ Socket::Ptr Socket::Accept()
 
 bool Socket::Poll(bool read, bool write, struct timeval *timeout)
 {
-	Log(LogCritical, "DERP") << "Poll: " << GetPeerAddress();
+	Log(LogCritical, "DERP") << "Socket-Poll: " << GetPeerAddress();
 
 	int rc;
 

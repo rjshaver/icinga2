@@ -343,6 +343,7 @@ void TlsStream::Handshake()
  */
 size_t TlsStream::Peek(void *buffer, size_t count, bool allow_partial)
 {
+	Log(LogCritical, "DERP") << "TlsSteam-Peek: " << m_Socket->GetPeerAddress();
 	boost::mutex::scoped_lock lock(m_Mutex);
 
 	if (!allow_partial)
@@ -356,6 +357,7 @@ size_t TlsStream::Peek(void *buffer, size_t count, bool allow_partial)
 
 size_t TlsStream::Read(void *buffer, size_t count, bool allow_partial)
 {
+	Log(LogCritical, "DERP") << "TlsSteam-Read: " << m_Socket->GetPeerAddress();
 	boost::mutex::scoped_lock lock(m_Mutex);
 
 	if (!allow_partial)
@@ -369,6 +371,8 @@ size_t TlsStream::Read(void *buffer, size_t count, bool allow_partial)
 
 void TlsStream::Write(const void *buffer, size_t count)
 {
+	Log(LogCritical, "DERP") << "TlsSteam-Write: " << m_Socket->GetPeerAddress();
+
 	boost::mutex::scoped_lock lock(m_Mutex);
 
 	m_SendQ->Write(buffer, count);
@@ -378,6 +382,7 @@ void TlsStream::Write(const void *buffer, size_t count)
 
 void TlsStream::Shutdown()
 {
+	Log(LogCritical, "DERP") << "TlsSteam-Shutdown: " << m_Socket->GetPeerAddress();
 	m_Shutdown = true;
 	ChangeEvents(POLLOUT);
 }
@@ -387,11 +392,13 @@ void TlsStream::Shutdown()
  */
 void TlsStream::Close()
 {
+	Log(LogCritical, "DERP") << "TlsSteam-Close: " << m_Socket->GetPeerAddress();
 	CloseInternal(false);
 }
 
 void TlsStream::CloseInternal(bool inDestructor)
 {
+	Log(LogCritical, "DERP") << "TlsSteam-CloseInternal: " << m_Socket->GetPeerAddress();
 	if (m_Eof)
 		return;
 
