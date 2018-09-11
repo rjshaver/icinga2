@@ -230,36 +230,18 @@ void TlsStream::OnEvent(int revents)
 			Log(LogCritical, "DERP") << "CurrentAction -> " << "TlsActionHandshake: " << m_Socket->GetPeerAddress();
 			// Run `SSL_do_handshake` until done or failed
 			while (true) {
-				ERR_clear_error();
 				rc = SSL_do_handshake(m_SSL.get());
 				if (rc > 0) {
 					Log(LogCritical, "DERP") << "Handshake done " << m_Socket->GetPeerAddress();
 					// Handshake done
 					break;
-				} else {
-					int err = SSL_get_error(m_SSL.get(), rc);
-					if (err == SSL_ERROR_WANT_READ) {
-						Log(LogCritical, "DERP") << "Want read" << m_Socket->GetPeerAddress();
-						// Continue `SSL_do_handshake` with `POLLIN`
-						ChangeEvents(POLLIN);
-					} else if (err == SSL_ERROR_WANT_WRITE) {
-						Log(LogCritical, "DERP") << "Want write " << m_Socket->GetPeerAddress();
-						// Continue `SSL_do_handshake` with `POLLOUT`
-						ChangeEvents(POLLOUT);
-					} else {
-						Log(LogCritical, "DERP") << "Handshake failed " << m_Socket->GetPeerAddress();
-						// Error is handled below
-						break;
-					}
 				}
 			}
 
-			if (rc > 0) {
-				Log(LogCritical, "DERP") << "Handshake done: " << m_Socket->GetPeerAddress();
-				success = true;
-				m_HandshakeOK = true;
-				m_CV.notify_all();
-			}
+			Log(LogCritical, "DERP") << "Handshake done: " << m_Socket->GetPeerAddress();
+			success = true;
+			m_HandshakeOK = true;
+			m_CV.notify_all();
 
 			break;
 		default:
