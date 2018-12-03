@@ -88,22 +88,19 @@ TlsStream::Ptr HttpServerConnection::GetStream() const
 
 void HttpServerConnection::Disconnect()
 {
-	boost::recursive_mutex::scoped_try_lock lock(m_DataHandlerMutex);
-	if (!lock.owns_lock()) {
-		Log(LogInformation, "HttpServerConnection", "Unable to disconnect Http client, I/O thread busy");
-		return;
-	}
-
-	Log(LogInformation, "HttpServerConnection")
-		<< "HTTP client disconnected (from " << m_PeerAddress << ")";
-
 	ApiListener::Ptr listener = ApiListener::GetInstance();
-	listener->RemoveHttpClient(this);
+
+	if (listener)
+		listener->RemoveHttpClient(this);
 
 	m_CurrentRequest.~HttpRequest();
 	new (&m_CurrentRequest) HttpRequest(nullptr);
 
 	m_Stream->Close();
+
+	Log(LogInformation, "HttpServerConnection")
+		<< "HTTP client disconnected (from " << m_PeerAddress << ")";
+
 }
 
 bool HttpServerConnection::ProcessMessage()
