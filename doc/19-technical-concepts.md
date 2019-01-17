@@ -927,3 +927,915 @@ into the Icinga 2 binary.
 * cpp-netlib: https://github.com/cpp-netlib/cpp-netlib
 * evpp: https://github.com/Qihoo360/evpp
 
+
+## JSON-RPC Message API <a id="technical-concepts-json-rpc-messages"></a>
+
+**The JSON-RPC message API is not a public API for end users.** In case you want
+to interact with Icinga, use the REST API.
+
+This section describes the internal cluster messages exchanged between endpoints.
+
+
+> **Tip**
+>
+> Debug build with `icinga2 daemon -DDebugJsonRpc=1` unveils the JSON-RPC messages.
+
+### Registered Handler Functions
+
+Functions by example:
+
+Event Sender: `Checkable::OnNewCheckResult`
+
+```
+On<xyz>.connect(&xyzHandler)
+```
+
+Event Receiver (Client): `CheckResultAPIHandler` (REGISTER_APIFUNCTION)
+
+```
+<xyz>APIHandler()
+```
+
+### Messages
+
+#### <a id="technical-concepts-json-rpc-messages-icinga-hello"></a> icinga::Hello
+
+> Location: `apilistener.cpp`
+
+##### Message Body
+
+Key       | Value
+----------|---------
+jsonrpc   | 2.0
+method    | icinga::Hello
+params    | Dictionary
+
+##### Params
+
+Currently empty.
+
+##### Functions
+
+Event Sender: When a new client connects in `NewClientHandlerInternal()`.
+Event Receiver: `HelloAPIHandler` (REGISTER_APIFUNCTION)
+
+##### Permissions
+
+None, this is a required message.
+
+##### Examples
+
+```
+
+```
+
+
+#### <a id="technical-concepts-json-rpc-messages-event-heartbeat"></a> event::Heartbeat
+
+> Location: `jsonrpcconnection-heartbeat.cpp`
+
+##### Message Body
+
+Key       | Value
+----------|---------
+jsonrpc   | 2.0
+method    | event::Heartbeat
+params    | Dictionary
+
+##### Params
+
+Key       | Type          | Description
+----------|---------------|------------------
+timeout   | Number        | Heartbeat timeout, sender sets 120s.
+
+
+##### Functions
+
+Event Sender: `JsonRpcConnection::HeartbeatTimerHandler`
+Event Receiver: `HeartbeatAPIHandler` (REGISTER_APIFUNCTION)
+
+Both sender and receiver exchange this heartbeat message. If the sender detects
+that a client endpoint hasn't sent anything in the updated timeout span, it disconnects
+the client. This is to avoid stale connections with no message processing.
+
+##### Permissions
+
+None.
+
+##### Examples
+
+```
+
+```
+
+
+#### <a id="technical-concepts-json-rpc-messages-event-checkresult"></a> event::CheckResult
+
+> Location: `clusterevents.cpp`
+
+##### Message Body
+
+Key       | Value
+----------|---------
+jsonrpc   | 2.0
+method    | event::CheckResult
+params    | Dictionary
+
+##### Params
+
+Key       | Type          | Description
+----------|---------------|------------------
+host      | String        | Host name
+service   | String        | Service name
+cr        | Serialized CR | Check result
+
+##### Functions
+
+Event Sender: `Checkable::OnNewCheckResult`
+Event Receiver: `CheckResultAPIHandler` (REGISTER_APIFUNCTION)
+
+##### Permissions
+
+The receiver will not process messages from not configured endpoints.
+
+Message updates will be dropped when:
+
+* Hosts/services do not exist
+* Origin is a remote command endpoint different to the configured, and whose zone is not allowed to access this checkable.
+
+##### Examples
+
+```
+
+```
+
+
+#### <a id="technical-concepts-json-rpc-messages-event-setnextcheck"></a> event::SetNextCheck
+
+> Location: `clusterevents.cpp`
+
+##### Message Body
+
+Key       | Value
+----------|---------
+jsonrpc   | 2.0
+method    | event::SetNextCheck
+params    | Dictionary
+
+##### Params
+
+Key         | Type          | Description
+------------|---------------|------------------
+host        | String        | Host name
+service     | String        | Service name
+next_check  | Timestamp     | Next scheduled time as UNIX timestamp.
+
+##### Functions
+
+Event Sender: `Checkable::OnNextCheckChanged`
+Event Receiver: `NextCheckChangedAPIHandler` (REGISTER_APIFUNCTION)
+
+##### Permissions
+
+The receiver will not process messages from not configured endpoints.
+
+Message updates will be dropped when:
+
+* Checkable does not exist.
+* Origin endpoint's zone is not allowed to access this checkable.
+
+##### Examples
+
+```
+
+```
+
+
+
+#### <a id="technical-concepts-json-rpc-messages-event-setnextnotification"></a> event::SetNextNotification
+
+> Location: `clusterevents.cpp`
+
+##### Message Body
+
+Key       | Value
+----------|---------
+jsonrpc   | 2.0
+method    | event::SetNextNotification
+params    | Dictionary
+
+##### Params
+
+Key               | Type          | Description
+------------------|---------------|------------------
+host              | String        | Host name
+service           | String        | Service name
+notification      | String        | Notification name
+next_notification | Timestamp     | Next scheduled notification time as UNIX timestamp.
+
+##### Functions
+
+Event Sender: `Notification::OnNextNotificationChanged`
+Event Receiver: `NextNotificationChangedAPIHandler` (REGISTER_APIFUNCTION)
+
+##### Permissions
+
+The receiver will not process messages from not configured endpoints.
+
+Message updates will be dropped when:
+
+* Notification does not exist.
+* Origin endpoint's zone is not allowed to access this checkable.
+
+##### Examples
+
+```
+
+```
+
+
+
+#### <a id="technical-concepts-json-rpc-messages-event-setforcenextcheck"></a> event::SetForceNextCheck
+
+> Location: `clusterevents.cpp`
+
+##### Message Body
+
+Key       | Value
+----------|---------
+jsonrpc   | 2.0
+method    | event::SetForceNextCheck
+params    | Dictionary
+
+##### Params
+
+Key       | Type          | Description
+----------|---------------|------------------
+host      | String        | Host name
+service   | String        | Service name
+forced    | Boolean       | Forced next check (execute now)
+
+##### Functions
+
+Event Sender: `Checkable::OnForceNextCheckChanged`
+Event Receiver: `ForceNextCheckChangedAPIHandler` (REGISTER_APIFUNCTION)
+
+##### Permissions
+
+The receiver will not process messages from not configured endpoints.
+
+Message updates will be dropped when:
+
+* Checkable does not exist.
+* Origin endpoint's zone is not allowed to access this checkable.
+
+##### Examples
+
+```
+
+```
+
+#### <a id="technical-concepts-json-rpc-messages-event-setforcenextnotification"></a> event::SetForceNextNotification
+
+> Location: `clusterevents.cpp`
+
+##### Message Body
+
+Key       | Value
+----------|---------
+jsonrpc   | 2.0
+method    | event::SetForceNextNotification
+params    | Dictionary
+
+##### Params
+
+Key       | Type          | Description
+----------|---------------|------------------
+host      | String        | Host name
+service   | String        | Service name
+forced    | Boolean       | Forced next check (execute now)
+
+##### Functions
+
+Event Sender: `Checkable::SetForceNextNotification`
+Event Receiver: `ForceNextNotificationChangedAPIHandler` (REGISTER_APIFUNCTION)
+
+##### Permissions
+
+The receiver will not process messages from not configured endpoints.
+
+Message updates will be dropped when:
+
+* Checkable does not exist.
+* Origin endpoint's zone is not allowed to access this checkable.
+
+##### Examples
+
+```
+
+```
+
+#### <a id="technical-concepts-json-rpc-messages-event-setacknowledgement"></a> event::SetAcknowledgement
+
+> Location: `clusterevents.cpp`
+
+##### Message Body
+
+Key       | Value
+----------|---------
+jsonrpc   | 2.0
+method    | event::SetAcknowledgement
+params    | Dictionary
+
+##### Params
+
+Key       | Type          | Description
+----------|---------------|------------------
+host      | String        | Host name
+service   | String        | Service name
+author    | String        | Acknowledgement author name.
+comment   | String        | Acknowledgement comment content.
+acktype   | Number        | Acknowledgement type (0=None, 1=Normal, 2=Sticky)
+notify    | Boolean       | Notification should be sent.
+persistent | Boolean      | Whether the comment is persistent.
+expiry    | Timestamp     | Optional expire time as UNIX timestamp.
+
+##### Functions
+
+Event Sender: `Checkable::OnForceNextCheckChanged`
+Event Receiver: `ForceNextCheckChangedAPIHandler` (REGISTER_APIFUNCTION)
+
+##### Permissions
+
+The receiver will not process messages from not configured endpoints.
+
+Message updates will be dropped when:
+
+* Checkable does not exist.
+* Origin endpoint's zone is not allowed to access this checkable.
+
+##### Examples
+
+```
+
+```
+
+#### <a id="technical-concepts-json-rpc-messages-event-clearacknowledgement"></a> event::ClearAcknowledgement
+
+> Location: `clusterevents.cpp`
+
+##### Message Body
+
+Key       | Value
+----------|---------
+jsonrpc   | 2.0
+method    | event::ClearAcknowledgement
+params    | Dictionary
+
+##### Params
+
+Key       | Type          | Description
+----------|---------------|------------------
+host      | String        | Host name
+service   | String        | Service name
+
+##### Functions
+
+Event Sender: `Checkable::OnAcknowledgementCleared`
+Event Receiver: `AcknowledgementClearedAPIHandler` (REGISTER_APIFUNCTION)
+
+##### Permissions
+
+The receiver will not process messages from not configured endpoints.
+
+Message updates will be dropped when:
+
+* Checkable does not exist.
+* Origin endpoint's zone is not allowed to access this checkable.
+
+##### Examples
+
+```
+
+```
+
+#### <a id="technical-concepts-json-rpc-messages-event-sendnotifications"></a> event::SendNotifications
+
+> Location: `clusterevents.cpp`
+
+##### Message Body
+
+Key       | Value
+----------|---------
+jsonrpc   | 2.0
+method    | event::SendNotifications
+params    | Dictionary
+
+##### Params
+
+Key       | Type          | Description
+----------|---------------|------------------
+host      | String        | Host name
+service   | String        | Service name
+cr        | Serialized CR | Check result
+type      | Number        | enum NotificationType, same as `types` for notification objects.
+author    | String        | Author name
+text      | String        | Notification text
+
+##### Functions
+
+Event Sender: `Checkable::OnNotificationsRequested`
+Event Receiver: `SendNotificationsAPIHandler` (REGISTER_APIFUNCTION)
+
+##### Permissions
+
+The receiver will not process messages from not configured endpoints.
+
+Message updates will be dropped when:
+
+* Checkable does not exist.
+* Origin endpoint's zone the same as the receiver. This binds notification messages to the HA zone.
+
+##### Examples
+
+```
+
+```
+
+#### <a id="technical-concepts-json-rpc-messages-event-notificationsentuser"></a> event::NotificationSentUser
+
+> Location: `clusterevents.cpp`
+
+##### Message Body
+
+Key       | Value
+----------|---------
+jsonrpc   | 2.0
+method    | event::NotificationSentUser
+params    | Dictionary
+
+##### Params
+
+Key           | Type            | Description
+--------------|-----------------|------------------
+host          | String          | Host name
+service       | String          | Service name
+notification  | String          | Notification name.
+user          | String          | Notified user name.
+type          | Number          | enum NotificationType, same as `types` in Notification objects.
+cr            | Serialized CR   | Check result.
+author        | String          | Notification author (for specific types)
+text          | String          | Notification text (for specific types)
+command       | String          | Notification command name.
+
+##### Functions
+
+Event Sender: `Checkable::OnNotificationSentToUser`
+Event Receiver: `NotificationSentUserAPIHandler` (REGISTER_APIFUNCTION)
+
+##### Permissions
+
+The receiver will not process messages from not configured endpoints.
+
+Message updates will be dropped when:
+
+* Checkable does not exist.
+* Origin endpoint's zone the same as the receiver. This binds notification messages to the HA zone.
+
+##### Examples
+
+```
+
+```
+
+#### <a id="technical-concepts-json-rpc-messages-event-notificationsenttoallusers"></a> event::NotificationSentToAllUsers
+
+> Location: `clusterevents.cpp`
+
+##### Message Body
+
+Key       | Value
+----------|---------
+jsonrpc   | 2.0
+method    | event::NotificationSentToAllUsers
+params    | Dictionary
+
+##### Params
+
+Key                       | Type            | Description
+--------------------------|-----------------|------------------
+host                      | String          | Host name
+service                   | String          | Service name
+notification              | String          | Notification name.
+users                     | Array of String | Notified user names.
+type                      | Number          | enum NotificationType, same as `types` in Notification objects.
+cr                        | Serialized CR   | Check result.
+author                    | String          | Notification author (for specific types)
+text                      | String          | Notification text (for specific types)
+last_notification         | Timestamp       | Last notification time as UNIX timestamp.
+next_notification         | Timestamp       | Next scheduled notification time as UNIX timestamp.
+notification_number       | Number          | Current notification number in problem state.
+last_problem_notification | Timestamp       | Last problem notification time as UNIX timestamp.
+no_more_notifications     | Boolean         | Whether to send future notifications when this notification becomes active on this HA node.
+
+##### Functions
+
+Event Sender: `Checkable::OnNotificationSentToAllUsers`
+Event Receiver: `NotificationSentToAllUsersAPIHandler` (REGISTER_APIFUNCTION)
+
+##### Permissions
+
+The receiver will not process messages from not configured endpoints.
+
+Message updates will be dropped when:
+
+* Checkable does not exist.
+* Origin endpoint's zone the same as the receiver. This binds notification messages to the HA zone.
+
+##### Examples
+
+```
+
+```
+
+
+
+#### <a id="technical-concepts-json-rpc-messages-event-executecommand"></a> event::ExecuteCommand
+
+> Location: `clusterevents-check.cpp` and `checkable-check.cpp`
+
+##### Message Body
+
+Key       | Value
+----------|---------
+jsonrpc   | 2.0
+method    | event::ExecuteCommand
+params    | Dictionary
+
+##### Params
+
+Key       | Type          | Description
+----------|---------------|------------------
+host      | String        | Host name
+service   | String        | Service name
+command_type
+command
+macros
+
+
+##### Functions
+
+**Event Sender:** This gets constructed directly in `Checkable::ExecuteCheck()` when a remote command endpoint is configured.
+
+* `GetCheckCommand()->Execute()` simulates an execution and extracts all command arguments into the `macro` dictionary.
+* When the endpoint is connected, the message is constructed and sent directly.
+* When the endpoint is not connected and not syncing replay logs and 5m after application start, generate an UNKNOWN check result for the user ("not connected").
+
+**Event Receiver:** `ExecuteCommandAPIHandler` (REGISTER_APIFUNCTION)
+
+Special handling, calls `ClusterEvents::EnqueueCheck()` for command endpoint checks.
+This function enqueues check tasks into a queue which is controlled in `RemoteCheckThreadProc()`.
+
+##### Permissions
+
+The receiver will not process messages from not configured endpoints.
+
+Message updates will be dropped when:
+
+* Origin endpoint's zone is not a parent zone of the receiver endpoint.
+* `accept_commands = false` in the `api` feature configuration sends back an UNKNOWN check result to the sender.
+
+The receiver constructs a virtual host object and looks for the local CheckCommand object.
+
+Returns UNKNWON as check result to the sender
+
+* when the CheckCommand object does not exist.
+* when there was an exception triggered from check execution, e.g. the plugin binary could not be executed or similar.
+
+The returned messages are synced directly to the sender's endpoint, no cluster broadcast.
+
+##### Examples
+
+```
+
+```
+
+
+
+#### <a id="technical-concepts-json-rpc-messages-config-update"></a> config::Update
+
+> **Location**: `apilistener-filesync.cpp`
+
+##### Message Body
+
+Key       | Value
+----------|---------
+jsonrpc   | 2.0
+method    | config::Update
+params    | Dictionary
+
+##### Params
+
+Key       | Type          | Description
+----------|---------------|------------------
+update    | Dictionary    | Config file paths and their content.
+update_v2 | Dictionary    | Additional meta config files introduced in 2.4+ for compatibility reasons.
+
+##### Functions
+
+Event Sender: `SendConfigUpdate()` called in `ApiListener::SyncClient()` when a new client endpoint connects.
+Event Receiver: `ConfigUpdateHandler` (REGISTER_APIFUNCTION)
+
+##### Permissions
+
+The receiver will not process messages from not configured endpoints.
+
+Message updates will be dropped when:
+
+* The origin sender is not in a parent zone of the receiver.
+* `api` feature does not accept config.
+
+Config updates will be ignored when:
+
+* The zone is not configured on the receiver endpoint.
+* The zone is authoritative on this instance (this only happens on a master which has `/etc/icinga2/zones.d` populated, and prevents sync loops)
+
+
+
+##### Examples
+
+```
+
+```
+
+
+#### <a id="technical-concepts-json-rpc-messages-config-updateobject"></a> config::UpdateObject
+
+> **Location**: `apilistener-configsync.cpp`
+
+##### Message Body
+
+Key       | Value
+----------|---------
+jsonrpc   | 2.0
+method    | config::UpdateObject
+params    | Dictionary
+
+##### Params
+
+Key                 | Type        | Description
+--------------------|-------------|------------------
+name                | String      | Object name.
+type                | String      | Object type name.
+version             | Number      | Object version.
+config              | String      | Config file content for `_api` packages.
+modified_attributes | Dictionary  | Modified attributes at runtime as key value pairs.
+original_attributes | Array       | Original attributes as array of keys.
+
+
+##### Functions
+
+**Event Sender:** Either on client connect (full sync), or runtime created/updated object
+
+`ApiListener::SendRuntimeConfigObjects()` gets called when a new endpoint is connected
+and runtime created config objects need to be synced. This invokes a call to `UpdateConfigObject()`
+to only sync this JsonRpcConnection client.
+
+`ConfigObject::OnActiveChanged` (created or deleted) or `ConfigObject::OnVersionChanged` (updated)
+also call `UpdateConfigObject()`.
+
+**Event Receiver:** `ConfigUpdateObjectAPIHandler` (REGISTER_APIFUNCTION)
+
+
+
+##### Permissions
+
+###### Sender
+
+Client receiver connects:
+
+The sender only syncs config object updates to a client which can access
+the config object, in `ApiListener::SendRuntimeConfigObjects()`.
+
+In addition to that, the client endpoint's zone is checked whether this zone may access
+the config object.
+
+Runtime updated object:
+
+Only if the config object belongs to the `_api` package.
+
+
+###### Receiver
+
+The receiver will not process messages from not configured endpoints.
+
+Message updates will be dropped when:
+
+* Origin sender endpoint's zone is in a child zone.
+* `api` feature does not accept config
+* The received config object type does not exist (this is to prevent failures with older nodes and new object types).
+
+Error handling:
+
+* Log an error if `CreateObject` fails (only if the object does not already exist)
+* Local object version is newer than the received version, object will not be updated.
+* Compare modified and original attributes and restore any type of change here.
+
+
+##### Examples
+
+```
+
+```
+
+
+
+#### <a id="technical-concepts-json-rpc-messages-config-deleteobject"></a> config::DeleteObject
+
+> **Location**: `apilistener-configsync.cpp`
+
+##### Message Body
+
+Key       | Value
+----------|---------
+jsonrpc   | 2.0
+method    | config::DeleteObject
+params    | Dictionary
+
+##### Params
+
+Key                 | Type        | Description
+--------------------|-------------|------------------
+name                | String      | Object name.
+type                | String      | Object type name.
+version             | Number      | Object version.
+
+##### Functions
+
+**Event Sender:**
+
+`ConfigObject::OnActiveChanged` (created or deleted) or `ConfigObject::OnVersionChanged` (updated)
+call `DeleteConfigObject()`.
+
+**Event Receiver:** `ConfigDeleteObjectAPIHandler` (REGISTER_APIFUNCTION)
+
+##### Permissions
+
+###### Sender
+
+Runtime deleted object:
+
+Only if the config object belongs to the `_api` package.
+
+###### Receiver
+
+The receiver will not process messages from not configured endpoints.
+
+Message updates will be dropped when:
+
+* Origin sender endpoint's zone is in a child zone.
+* `api` feature does not accept config
+* The received config object type does not exist (this is to prevent failures with older nodes and new object types).
+* The object in question was not created at runtime, it does not belong to the `_api` package.
+
+Error handling:
+
+* Log an error if `DeleteObject` fails (only if the object does not already exist)
+
+
+##### Examples
+
+```
+
+```
+
+
+
+
+#### <a id="technical-concepts-json-rpc-messages-pki-requestcertificate"></a> pki::RequestCertificate
+
+> Location: `jsonrpcconnection-pki.cpp`
+
+##### Message Body
+
+Key       | Value
+----------|---------
+jsonrpc   | 2.0
+method    | pki::RequestCertificate
+params    | Dictionary
+
+##### Params
+
+Key           | Type          | Description
+--------------|---------------|------------------
+ticket        | String        | Own ticket, or as satellite in CA proxy from local store.
+cert_request  | String        | Certificate request content from local store, optional.
+
+##### Functions
+
+Event Sender: `RequestCertificateHandler`
+Event Receiver: `RequestCertificateHandler` (REGISTER_APIFUNCTION)
+
+##### Permissions
+
+This is an anonymous request, and the number of anonymous clients can be configured
+in the `api` feature.
+
+Only valid certificate request messages are processed, and valid signed certificates
+won't be signed again.
+
+##### Examples
+
+```
+
+```
+
+#### <a id="technical-concepts-json-rpc-messages-pki-updatecertificate"></a> pki::UpdateCertificate
+
+> Location: `jsonrpcconnection-pki.cpp`
+
+##### Message Body
+
+Key       | Value
+----------|---------
+jsonrpc   | 2.0
+method    | pki::UpdateCertificate
+params    | Dictionary
+
+##### Params
+
+Key                 | Type          | Description
+--------------------|---------------|------------------
+status_code         | Number        | Status code, 0=ok.
+cert                | String        | Signed certificate content.
+ca                  | String        | Public CA certificate content.
+fingerprint_request | String        | Certificate fingerprint from the CSR.    
+
+
+##### Functions
+
+**Event Sender:**
+
+* When a client requests a certificate in `RequestCertificateHandler` and the satellite
+already has a signed certificate, the `pki::UpdateCertificate` message is constructed and sent back.
+* When the endpoint holding the master's CA private key (and TicketSalt private key) is able to sign
+the request, the `pki::UpdateCertificate` message is constructed and sent back.
+
+**Event Receiver:** `UpdateCertificateHandler` (REGISTER_APIFUNCTION)
+
+##### Permissions
+
+Message updates are dropped when
+
+* The origin sender is not in a parent zone of the receiver.
+* The certificate fingerprint is in an invalid format.
+
+
+##### Examples
+
+```
+
+```
+
+
+#### <a id="technical-concepts-json-rpc-messages-pki-updatecertificate"></a> log::SetLogPosition
+
+> Location: `apilistener.cpp` and `jsonrpcconnection.cpp`
+
+##### Message Body
+
+Key       | Value
+----------|---------
+jsonrpc   | 2.0
+method    | log::SetLogPosition
+params    | Dictionary
+
+##### Params
+
+Key                 | Type          | Description
+--------------------|---------------|------------------
+log_position        | Timestamp     | The endpoint's log position as UNIX timestamp.  
+
+
+##### Functions
+
+**Event Sender:**
+
+During log replay to a client endpoint in `ApiListener::ReplayLog()`, each processed
+file generates a message which updates the log position timestamp.
+
+`ApiListener::ApiTimerHandler()` invokes a check to keep all connected endpoints and
+their log position in sync during replay log.
+
+**Event Receiver:** `SetLogPositionHandler` (REGISTER_APIFUNCTION)
+
+##### Permissions
+
+The receiver will not process messages from not configured endpoints.
+
+
+##### Examples
+
+```
+
+```
